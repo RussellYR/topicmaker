@@ -67,6 +67,12 @@ body.theme-b{--bg:#F7F0E5;--card:#FFFCF7;--ink:#754C3A;--muted:#896F60;--line:#E
 .overview-item-label{padding:13px 10px 0}
 .overview-row .overview-content{padding:2px 10px 15px}
 .overview-group-body{padding:0 10px}
+.overview-group-footer{display:flex;align-items:center;justify-content:center;min-height:48px;width:100%;border:0;border-top:1px solid var(--line);background:transparent;color:var(--green2);font-size:13px;font-weight:850;cursor:pointer}
+.overview-group-footer:hover{background:rgba(150,110,66,.075)}
+.overview-group-footer:focus-visible{outline:3px solid var(--green2);outline-offset:-3px}
+.overview-utility-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:4px 0 14px}
+.overview-utility-bar>.ghost{min-height:44px;font-weight:850}
+#overview-advanced{margin:0 0 17px}
 .overview-row+.overview-row{border-top:1px solid var(--line)}
 .overview-row .overview-toggle{padding:13px 10px;min-height:48px}
 .overview-row .overview-toggle:hover{background:rgba(150,110,66,.055)}
@@ -130,7 +136,7 @@ body.theme-b{--bg:#F7F0E5;--card:#FFFCF7;--ink:#754C3A;--muted:#896F60;--line:#E
   const route=new URLSearchParams(location.search),rawDeck=route.get('deck'),deck=rawDeck==='B'?'B':(rawDeck==='A'||route.has('player')?'A':null),CATEGORIES=deck==='B'?B_CATEGORIES:A_CATEGORIES;
   document.body.classList.toggle('theme-b',deck==='B');
   const relationNames={all:'全部題目',friend:'朋友',dating:'曖昧',couple:'情侶'};
-  let relationMode='all',pageView='draw',overviewStatus='remaining',overviewCategory='all',overviewSearch='',overviewRelation='all',overviewClosed=new Set(),settingsExpanded=false,serial=0;
+  let relationMode='all',pageView='draw',overviewStatus='remaining',overviewCategory='all',overviewSearch='',overviewRelation='all',overviewClosed=new Set(),settingsExpanded=false,overviewAdvancedExpanded=false,serial=0;
   const questions=CATEGORIES.flatMap(c=>c.questions.map((q,i)=>{const id=deck==='B'?'B'+String(++serial).padStart(2,'0'):c.id+'-'+String(i+1).padStart(2,'0');return {id,category:c.id,text:q,relations:deck==='B'?(COUPLE_ONLY.has(id)?['couple']:DATING_COUPLE.has(id)?['dating','couple']:['friend','dating','couple']):['friend','dating','couple']};}));
   const map = Object.fromEntries(questions.map(q=>[q.id,q]));
   const categories = Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));
@@ -203,6 +209,7 @@ body.theme-b{--bg:#F7F0E5;--card:#FFFCF7;--ink:#754C3A;--muted:#896F60;--line:#E
                 </div>
               </article>`;
             }).join('')}
+            <button type="button" class="overview-group-footer" data-category-toggle="${escape(cat.id)}" aria-label="收合${escape(cat.name)}分類">收合此分類 ↑</button>
           </div>`}
         </section>`;
     }).join('')||'<div class="overview-empty">此狀態下沒有符合篩選條件的題目。</div>';
@@ -217,7 +224,24 @@ const other=active==='1'?'2':'1';const otherLink=head.querySelector('a[href*="pl
 const nav=document.createElement('nav');nav.className='page-tabs';nav.innerHTML=`<button class="page-tab ${pageView==='draw'?'selected':''}" id="tab-draw">✳ 抽題</button><button class="page-tab ${pageView==='overview'?'selected':''}" id="tab-overview">☷ 題庫總覽</button>`;head.after(nav);
 const pane=document.createElement('div');pane.id='draw-pane';pane.hidden=pageView!=='draw';nav.after(pane);pane.append(metrics,draw,history);
 const overview=document.createElement('section');overview.id='overview-pane';overview.hidden=pageView!=='overview';pane.after(overview);
-overview.innerHTML=`<div class="overview-tools"><div class="overview-toolbar"><div><h2>題庫總覽</h2><p class="overview-meta">同類別題目集中顯示，點擊分類可展開／收合；右上角可全展／全收，預設全部展開。</p></div><button class="ghost" id="overview-all">全部收合 ↑</button></div><div class="overview-filters"><div class="overview-filter"><label for="overview-category">分類</label><select id="overview-category"><option value="all">全部分類</option>${CATEGORIES.map(c=>`<option value="${c.id}">${escape(c.name)}</option>`).join('')}</select></div>${deck==='B'?'<div class="overview-filter"><label for="overview-relation">適用關係</label><select id="overview-relation"><option value="all">全部</option><option value="friend">朋友</option><option value="dating">曖昧</option><option value="couple">情侶</option></select></div>':''}<div class="overview-filter search"><label for="overview-search">搜尋題目</label><input id="overview-search" type="search" autocomplete="off" placeholder="關鍵字、分類或題目編號"></div></div></div><p class="overview-count" id="overview-count"></p><div class="overview-state-tabs" role="group" aria-label="切換已選或未選題目"><button type="button" class="overview-state-tab" id="overview-done" aria-pressed="false">已選</button><button type="button" class="overview-state-tab" id="overview-remaining" aria-pressed="true">未選</button></div><div id="overview-list"></div>`;
+overview.innerHTML=`
+<div class="overview-utility-bar">
+  <button class="ghost overview-advanced-toggle" type="button" id="overview-advanced-toggle" aria-controls="overview-advanced" aria-expanded="${overviewAdvancedExpanded}">進階搜尋 ${overviewAdvancedExpanded?'⌃':'⌄'}</button>
+  <button class="ghost" id="overview-all" type="button">全部收合 ↑</button>
+</div>
+<div class="overview-tools" id="overview-advanced" ${overviewAdvancedExpanded?'':'hidden'}>
+  <div class="overview-toolbar">
+    <div><h2>題庫總覽</h2><p class="overview-meta">可依分類、適用關係與關鍵字搜尋題目；每個分類可獨立收合。</p></div>
+  </div>
+  <div class="overview-filters">
+    <div class="overview-filter"><label for="overview-category">分類</label><select id="overview-category"><option value="all">全部分類</option>${CATEGORIES.map(c=>`<option value="${c.id}">${escape(c.name)}</option>`).join('')}</select></div>
+    ${deck==='B'?'<div class="overview-filter"><label for="overview-relation">適用關係</label><select id="overview-relation"><option value="all">全部</option><option value="friend">朋友</option><option value="dating">曖昧</option><option value="couple">情侶</option></select></div>':''}
+    <div class="overview-filter search"><label for="overview-search">搜尋題目</label><input id="overview-search" type="search" autocomplete="off" placeholder="關鍵字、分類或題目編號"></div>
+  </div>
+</div>
+<p class="overview-count" id="overview-count"></p>
+<div class="overview-state-tabs" role="group" aria-label="切換已選或未選題目"><button type="button" class="overview-state-tab" id="overview-done" aria-pressed="false">已選</button><button type="button" class="overview-state-tab" id="overview-remaining" aria-pressed="true">未選</button></div>
+<div id="overview-list"></div>`;
 document.getElementById('tab-draw').onclick=()=>{pageView='draw';render();};document.getElementById('tab-overview').onclick=()=>{pageView='overview';overviewClosed=new Set();render();};
 if(deck==='B'){metrics.classList.add('four');metrics.insertAdjacentHTML('beforeend',`<div class="metric"><b>${filteredRemaining(s).length}</b><span>此模式可抽</span></div>`);
 const bar=document.createElement('div');bar.className='relation-panel';bar.innerHTML=`<div class="relation-head"><strong>適用關係篩選</strong><span class="overview-meta">目前可抽 ${filteredRemaining(s).length} 題</span></div><div class="relation-options">${[['all','全部題目'],['friend','朋友'],['dating','曖昧'],['couple','情侶']].map(([k,label])=>`<button class="relation-option ${relationMode===k?'selected':''}" data-relation="${k}" ${s.pending.length?'disabled':''} aria-pressed="${relationMode===k}">${label}</button>`).join('')}</div><p class="relation-note">${s.pending.length?'請先完成或放棄本輪才能切換篩選。':'預設全部題目；切換篩選不會清除已選紀錄。'}</p>`;draw.querySelector('.category-track').before(bar);bar.querySelectorAll('[data-relation]').forEach(b=>b.onclick=()=>{relationMode=b.dataset.relation;render();});
@@ -250,6 +274,14 @@ toggle.textContent=settingsExpanded?'收合設定':'展開設定';
 toggle.setAttribute('aria-expanded',String(settingsExpanded));
 });
 }
+document.getElementById('overview-advanced-toggle').onclick=()=>{
+  overviewAdvancedExpanded=!overviewAdvancedExpanded;
+  const panel=document.getElementById('overview-advanced');
+  const button=document.getElementById('overview-advanced-toggle');
+  panel.hidden=!overviewAdvancedExpanded;
+  button.setAttribute('aria-expanded',String(overviewAdvancedExpanded));
+  button.textContent='進階搜尋 '+(overviewAdvancedExpanded?'⌃':'⌄');
+};
 document.getElementById('overview-category').value=overviewCategory;document.getElementById('overview-search').value=overviewSearch;
 document.getElementById('overview-done').onclick=()=>{overviewStatus='done';overviewClosed=new Set();renderOverview();};document.getElementById('overview-remaining').onclick=()=>{overviewStatus='remaining';overviewClosed=new Set();renderOverview();};document.getElementById('overview-category').onchange=e=>{overviewCategory=e.target.value;renderOverview();};document.getElementById('overview-search').oninput=e=>{overviewSearch=e.target.value;renderOverview();};
 if(deck==='B'){document.getElementById('overview-relation').value=overviewRelation;document.getElementById('overview-relation').onchange=e=>{overviewRelation=e.target.value;renderOverview();};}
