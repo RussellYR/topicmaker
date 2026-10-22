@@ -65,6 +65,10 @@ body.theme-b{--bg:#F7F0E5;--card:#FFFCF7;--ink:#754C3A;--muted:#896F60;--line:#E
 .overview-meta{font-size:12px;line-height:1.8;color:var(--muted)}
 .overview-empty{padding:32px;text-align:center;color:var(--muted)}
 [hidden]{display:none!important}
+.settings-controls{display:flex;justify-content:flex-end;align-items:center;margin:4px 0 14px}
+.settings-toggle{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-weight:850}
+.draw-settings{margin:0 0 20px}
+.draw-settings .metrics{margin-top:0}
 @media(max-width:760px){.home-choices{grid-template-columns:1fr}.home-choice{min-height:0;padding:24px}.metrics.four{grid-template-columns:repeat(2,1fr)}.overview-filters{grid-template-columns:1fr 1fr}.overview-filter.search{grid-column:span 2}.page-tab{flex:1}.relation-option{flex:1}}
 @media(max-width:420px){.overview-filters{grid-template-columns:1fr}.overview-filter.search{grid-column:auto}.overview-toggle{padding:14px}.overview-content{padding:0 14px 14px}}
 
@@ -100,7 +104,7 @@ body.theme-b{--bg:#F7F0E5;--card:#FFFCF7;--ink:#754C3A;--muted:#896F60;--line:#E
   const route=new URLSearchParams(location.search),rawDeck=route.get('deck'),deck=rawDeck==='B'?'B':(rawDeck==='A'||route.has('player')?'A':null),CATEGORIES=deck==='B'?B_CATEGORIES:A_CATEGORIES;
   document.body.classList.toggle('theme-b',deck==='B');
   const relationNames={all:'全部題目',friend:'朋友',dating:'曖昧',couple:'情侶'};
-  let relationMode='all',pageView='draw',overviewStatus='all',overviewCategory='all',overviewSearch='',overviewRelation='all',overviewClosed=new Set(),serial=0;
+  let relationMode='all',pageView='draw',overviewStatus='all',overviewCategory='all',overviewSearch='',overviewRelation='all',overviewClosed=new Set(),settingsExpanded=false,serial=0;
   const questions=CATEGORIES.flatMap(c=>c.questions.map((q,i)=>{const id=deck==='B'?'B'+String(++serial).padStart(2,'0'):c.id+'-'+String(i+1).padStart(2,'0');return {id,category:c.id,text:q,relations:deck==='B'?(COUPLE_ONLY.has(id)?['couple']:DATING_COUPLE.has(id)?['dating','couple']:['friend','dating','couple']):['friend','dating','couple']};}));
   const map = Object.fromEntries(questions.map(q=>[q.id,q]));
   const categories = Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));
@@ -145,7 +149,34 @@ overview.innerHTML=`<div class="overview-tools"><div class="overview-toolbar"><d
 document.getElementById('tab-draw').onclick=()=>{pageView='draw';render();};document.getElementById('tab-overview').onclick=()=>{pageView='overview';overviewClosed=new Set();render();};
 if(deck==='B'){metrics.classList.add('four');metrics.insertAdjacentHTML('beforeend',`<div class="metric"><b>${filteredRemaining(s).length}</b><span>此模式可抽</span></div>`);
 const bar=document.createElement('div');bar.className='relation-panel';bar.innerHTML=`<div class="relation-head"><strong>適用關係篩選</strong><span class="overview-meta">目前可抽 ${filteredRemaining(s).length} 題</span></div><div class="relation-options">${[['all','全部題目'],['friend','朋友'],['dating','曖昧'],['couple','情侶']].map(([k,label])=>`<button class="relation-option ${relationMode===k?'selected':''}" data-relation="${k}" ${s.pending.length?'disabled':''} aria-pressed="${relationMode===k}">${label}</button>`).join('')}</div><p class="relation-note">${s.pending.length?'請先完成或放棄本輪才能切換篩選。':'預設全部題目；切換篩選不會清除已選紀錄。'}</p>`;draw.querySelector('.category-track').before(bar);bar.querySelectorAll('[data-relation]').forEach(b=>b.onclick=()=>{relationMode=b.dataset.relation;render();});
-if(s.pending.length){draw.querySelectorAll('.question-card').forEach((card,i)=>{const q=map[s.pending[i]];if(q)card.querySelector('.choose').insertAdjacentHTML('beforebegin',`<p class="overview-meta">適用關係：${q.relations.map(r=>relationNames[r]).join('、')}</p>`);});}else if(remaining(s).length&&!filteredRemaining(s).length){const element=draw.querySelector('.start-state');if(element)element.innerHTML='<div class="start-icon">🍁</div><h3>此模式的題目已選完</h3><p>請選其他關係模式或「全部題目」繼續，原本的進度不會改變。</p>';}
+if(!s.pending.length&&remaining(s).length&&!filteredRemaining(s).length){const element=draw.querySelector('.start-state');if(element)element.innerHTML='<div class="start-icon">🍁</div><h3>此模式的題目已選完</h3><p>請選其他關係模式或「全部題目」繼續，原本的進度不會改變。</p>';}
+}
+// B 題庫：將本輪統計、說明、關係篩選與分類統一收進抽題設定區；題目卡仍保持顯示。
+if(deck==='B'){
+const details=document.createElement('div');
+details.id='draw-settings';
+details.className='draw-settings';
+details.hidden=!settingsExpanded;
+const settingsParts=[metrics,draw.querySelector('.section-head'),draw.querySelector('.relation-panel'),draw.querySelector('.category-track')];
+settingsParts.filter(Boolean).forEach(node=>details.appendChild(node));
+const controls=document.createElement('div');
+controls.className='settings-controls';
+const toggle=document.createElement('button');
+toggle.type='button';
+toggle.id='settings-toggle';
+toggle.className='ghost settings-toggle';
+toggle.setAttribute('aria-controls','draw-settings');
+toggle.setAttribute('aria-expanded',String(settingsExpanded));
+toggle.textContent=settingsExpanded?'收合設定':'展開設定';
+controls.appendChild(toggle);
+pane.insertBefore(controls,draw);
+pane.insertBefore(details,draw);
+toggle.addEventListener('click',()=>{
+settingsExpanded=!settingsExpanded;
+details.hidden=!settingsExpanded;
+toggle.textContent=settingsExpanded?'收合設定':'展開設定';
+toggle.setAttribute('aria-expanded',String(settingsExpanded));
+});
 }
 document.getElementById('overview-status').value=overviewStatus;document.getElementById('overview-category').value=overviewCategory;document.getElementById('overview-search').value=overviewSearch;
 document.getElementById('overview-status').onchange=e=>{overviewStatus=e.target.value;renderOverview();};document.getElementById('overview-category').onchange=e=>{overviewCategory=e.target.value;renderOverview();};document.getElementById('overview-search').oninput=e=>{overviewSearch=e.target.value;renderOverview();};
